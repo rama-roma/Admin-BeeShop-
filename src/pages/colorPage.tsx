@@ -6,21 +6,19 @@ const ColorPage = () => {
     queryKey: ["color"],
     queryFn: getColor,
   });
-  
+
   return (
     <>
       <main>
         <section>
           <div>
-            {
-              data?.map((e) => {
-                return(
-                  <div key={e.id}>
-                    <h1>{e.colorName}</h1>
-                  </div>
-                )
-              })
-            }
+            {data?.map((e: any) => {
+              return (
+                <div key={e.id}>
+                  <h1>{e.colorName}</h1>
+                </div>
+              );
+            })}
           </div>
         </section>
       </main>

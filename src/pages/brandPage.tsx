@@ -11,7 +11,7 @@ const BrandPage = () => {
     <main>
       <section>
         <div>
-          {data?.map((e) => (
+          {data?.map((e: any) => (
             <div key={e.id}>
               <h1>{e.brandName}</h1>
             </div>

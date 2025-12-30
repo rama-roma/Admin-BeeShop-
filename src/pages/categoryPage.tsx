@@ -12,7 +12,7 @@ const CategoryPage = () => {
         <section>
           <div>
             {
-              data?.map((e) => {
+              data?.map((e: any) => {
                 return(
                   <div key={e.id}>
                     <h1>{e.categoryName}</h1>

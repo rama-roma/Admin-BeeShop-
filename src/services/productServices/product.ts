@@ -44,20 +44,3 @@ export const addProduct = async (formData: FormData) => {
   const data = await res.json();
   return data;
 };
-
-
-export const editProduct = async (id: number, formData: FormData) => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(
-    `https://store-api.softclub.tj/Product/update-product?id=${id}`,
-    {
-      method: "PUT", 
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    }
-  );
-  const data = await res.json();
-  return data;
-};
