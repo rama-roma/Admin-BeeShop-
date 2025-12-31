@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   addProduct,
   deleteProduct,
+  editProduct,
   getProduct,
 } from "../services/productServices/product";
 import { queryClient } from "../main";
@@ -13,6 +14,9 @@ import { getSubCategory } from "../services/subCategoryServices/subCategory";
 
 const ProductPage = () => {
   const [openAdd, setOpenAdd] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
   // const [newName, setNewName] = useState("");
   // const [newCategory, setNewCategory] = useState("");
   // const [newColor, setNewColor] = useState("");
@@ -40,6 +44,28 @@ const ProductPage = () => {
     queryKey: ["subCategory"],
     queryFn: getSubCategory,
   });
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    const formData = new FormData(e.currentTarget);
+
+    const payload = {
+      Id: selectedProduct.id,
+      BrandId: formData.get("BrandId"),
+      ColorId: formData.get("ColorId"),
+      SubCategoryId: formData.get("SubCategoryId"),
+      ProductName: formData.get("ProductName") || selectedProduct.productName,
+      Description: formData.get("Description") || selectedProduct.description,
+      Code: formData.get("Code") || selectedProduct.code,
+      Quantity: formData.get("Quantity"),
+      Price: formData.get("Price"),
+      HasDiscount: formData.get("HasDiscount"),
+    };
+
+    editData.mutate(payload);
+  };
 
   const deleteData = useMutation({
     mutationFn: deleteProduct,
@@ -75,6 +101,26 @@ const ProductPage = () => {
         message: "Error",
         description: error.message || "Failed to add product",
         placement: "topRight",
+      });
+    },
+  });
+
+  const editData = useMutation({
+    mutationFn: (payload: any) => editProduct(payload),
+
+    onSuccess: () => {
+      notification.success({
+        message: "Updated",
+        description: "Product updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setOpenEdit(false);
+    },
+
+    onError: () => {
+      notification.error({
+        message: "Error",
+        description: "Failed to update product",
       });
     },
   });
@@ -134,9 +180,38 @@ const ProductPage = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => deleteData.mutate(product.id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition"
+                      className="
+    flex items-center gap-2
+    bg-gradient-to-r from-red-500 to-rose-600
+    text-white text-sm font-semibold
+    px-4 py-2 rounded-xl
+    shadow-md shadow-red-500/30
+    hover:from-red-600 hover:to-rose-700
+    hover:shadow-lg hover:shadow-red-600/40
+    active:scale-95
+    transition-all duration-200
+  "
                     >
                       Delete
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setOpenEdit(true);
+                      }}
+                      className="
+    flex items-center gap-2
+    bg-gradient-to-r from-yellow-400 to-amber-500
+    text-white text-sm font-semibold
+    px-4 py-2 rounded-xl
+    shadow-md shadow-yellow-500/30
+    hover:from-yellow-500 hover:to-amber-600
+    hover:shadow-lg hover:shadow-yellow-600/40
+    active:scale-95
+    transition-all duration-200
+  "
+                    >
+                      Edit
                     </button>
                   </div>
                 </div>
@@ -292,6 +367,134 @@ const ProductPage = () => {
               className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-2 rounded-xl hover:scale-105 hover:shadow-2xl transition-transform font-semibold"
             >
               Add
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={openEdit}
+        onCancel={() => setOpenEdit(false)}
+        footer={null}
+        className="dark-modal rounded-2xl overflow-hidden"
+        title={
+          <h2 className="text-white text-xl bg-[#1f1f2e] p-5 rounded-2xl font-bold">
+            Edit Product
+          </h2>
+        }
+      >
+        <form
+          id="edit-product-form"
+          className="flex flex-col gap-4 p-6 bg-[#1f1f2e] rounded-2xl"
+          onSubmit={handleEditSubmit}
+        >
+          <input
+            name="ProductName"
+            defaultValue={selectedProduct?.productName}
+            placeholder="Product Name"
+            className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+          />
+          <input
+            name="Description"
+            defaultValue={selectedProduct?.description}
+            placeholder="Description"
+            className="bg-[#2a2a3f] text-white p-3 rounded-lg border"
+          />
+
+          <input
+            name="Code"
+            defaultValue={selectedProduct?.code}
+            placeholder="Code"
+            className="bg-[#2a2a3f] text-white p-3 rounded-lg border"
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              name="Price"
+              type="number"
+              defaultValue={selectedProduct?.price}
+              placeholder="Price"
+              className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+            />
+
+            <input
+              name="DiscountPrice"
+              type="number"
+              defaultValue={selectedProduct?.discountPrice}
+              placeholder="Discount Price"
+              className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+            />
+          </div>
+
+          <input
+            name="Quantity"
+            type="number"
+            defaultValue={selectedProduct?.quantity}
+            placeholder="Quantity"
+            className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+          />
+
+          <div className="grid grid-cols-3 gap-4">
+            <select
+              name="BrandId"
+              defaultValue={selectedProduct?.brandId}
+              className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+            >
+              {brands?.map((b: any) => (
+                <option key={b.id} value={b.id}>
+                  {b.brandName}
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="ColorId"
+              defaultValue={selectedProduct?.colorId}
+              className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+            >
+              {colors?.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.colorName}
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="SubCategoryId"
+              defaultValue={selectedProduct?.subCategoryId}
+              className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+            >
+              {subCategory?.map((s: any) => (
+                <option key={s.id} value={s.id}>
+                  {s.subCategoryName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <select
+            name="HasDiscount"
+            defaultValue={String(selectedProduct?.hasDiscount)}
+            className="bg-[#2a2a3f] text-white p-3 rounded-lg border border-gray-600"
+          >
+            <option value="true">Has Discount</option>
+            <option value="false">No Discount</option>
+          </select>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setOpenEdit(false)}
+              className="px-6 py-2 rounded-xl bg-gray-700 text-white hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="px-6 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold hover:scale-105 transition"
+            >
+              Save changes
             </button>
           </div>
         </form>
