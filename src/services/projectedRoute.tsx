@@ -9,3 +9,4 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 export default ProtectedRoute;
+ 

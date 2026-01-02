@@ -1,13 +1,16 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  addImageToProduct,
   addProduct,
   deleteProduct,
+  deleteProductImage,
   editProduct,
+  getByIdProduct,
   getProduct,
 } from "../services/productServices/product";
 import { queryClient } from "../main";
 import { Modal, notification } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getBrand } from "../services/brandServices/brand";
 import { getColor } from "../services/colorServices/color";
 import { getSubCategory } from "../services/subCategoryServices/subCategory";
@@ -16,14 +19,6 @@ const ProductPage = () => {
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-
-  // const [newName, setNewName] = useState("");
-  // const [newCategory, setNewCategory] = useState("");
-  // const [newColor, setNewColor] = useState("");
-  // const [newQuantity, setNewQuantity] = useState("");
-  // const [newPrice, setNewPrice] = useState("");
-  // const [newDiscountPrice, setNewDiscountPrice] = useState("");
-  // const [newHasDicount, setNewHasDiscount] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["products"],
@@ -53,15 +48,16 @@ const ProductPage = () => {
 
     const payload = {
       Id: selectedProduct.id,
-      BrandId: formData.get("BrandId"),
-      ColorId: formData.get("ColorId"),
-      SubCategoryId: formData.get("SubCategoryId"),
+      BrandId: Number(formData.get("BrandId")),
+      ColorId: Number(formData.get("ColorId")),
+      SubCategoryId: Number(formData.get("SubCategoryId")),
       ProductName: formData.get("ProductName") || selectedProduct.productName,
       Description: formData.get("Description") || selectedProduct.description,
-      Code: formData.get("Code") || selectedProduct.code,
-      Quantity: formData.get("Quantity"),
-      Price: formData.get("Price"),
-      HasDiscount: formData.get("HasDiscount"),
+      Code: Date.now(),
+      Quantity: Number(formData.get("Quantity")),
+      Price: Number(formData.get("Price")),
+      DiscountPrice: Number(formData.get("DiscountPrice")),
+      HasDiscount: formData.get("HasDiscount") === "true",
     };
 
     editData.mutate(payload);
@@ -106,7 +102,7 @@ const ProductPage = () => {
   });
 
   const editData = useMutation({
-    mutationFn: (payload: any) => editProduct(payload),
+    mutationFn: editProduct,
 
     onSuccess: () => {
       notification.success({
@@ -117,10 +113,85 @@ const ProductPage = () => {
       setOpenEdit(false);
     },
 
+    onError: (error: any) => {
+      if (error.message === "TOKEN_EXPIRED") {
+        notification.error({
+          message: "Session expired",
+          description: "Please login again",
+        });
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      } else {
+        notification.error({
+          message: "Error",
+          description: "Failed to update product",
+        });
+      }
+    },
+  });
+
+  async function handleEdit(product: any) {
+    const full = await getByIdProduct(product.id);
+    setSelectedProduct({
+      id: full.id,
+      productName: full.productName,
+      description: full.description,
+      code: full.code,
+      price: full.price,
+      discountPrice: full.discountPrice,
+      quantity: full.quantity,
+      brandId: full.brandId,
+      colorId: full.colorId,
+      subCategoryId: full.subCategoryId,
+      hasDiscount: full.hasDiscount,
+      images: full.images,
+    });
+  }
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setOpenEdit(true);
+    }
+  }, [selectedProduct]);
+
+  const addImageMutation = useMutation({
+    mutationFn: ({
+      productId,
+      images,
+    }: {
+      productId: number;
+      images: any;
+    }) => addImageToProduct(productId, images),
+    onSuccess: () => {
+      notification.success({
+        message: "Images Added",
+        description: "Images successfully added to product",
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
     onError: () => {
       notification.error({
         message: "Error",
-        description: "Failed to update product",
+        description: "Failed to add images",
+      });
+    },
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (imageId: number) => deleteProductImage(imageId),
+
+    onSuccess: () => {
+      notification.success({
+        message: "Deleted",
+        description: "Image deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+
+    onError: () => {
+      notification.error({
+        message: "Error",
+        description: "Failed to delete image",
       });
     },
   });
@@ -145,11 +216,39 @@ const ProductPage = () => {
                 key={product.id}
                 className="bg-[#ffffff00] border-[2px] border-gray-600 rounded-2xl shadow-lg p-4 flex flex-col gap-3 hover:shadow-2xl transition"
               >
-                <img
-                  src={`https://store-api.softclub.tj/images/${product.image}`}
-                  alt={product.productName}
-                  className="w-40 h-40 object-cover rounded-xl"
-                />
+                <div className="relative w-40 h-40">
+                  <img
+                    src={`https://store-api.softclub.tj/images/${
+                      selectedProduct?.image?.images || product.image
+                    }`}
+                    alt={product.productName}
+                    className="w-40 h-40 object-cover rounded-xl"
+                  />
+
+                  <label
+                    htmlFor={`add-image-${product.id}`}
+                    className="absolute bottom-2 right-2 bg-yellow-400 text-black px-2 py-1 rounded-full shadow-md hover:bg-yellow-500 cursor-pointer text-xs flex items-center gap-1"
+                  >
+                    + Add
+                  </label>
+
+                  <input
+                    type="file"
+                    id={`add-image-${product.id}`}
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (!e.target.files || e.target.files.length === 0)
+                        return;
+                      addImageMutation.mutate({
+                        productId: Number(product.id),
+                        images: e.target.files[0],
+                      });
+
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
 
                 <div className="flex flex-col gap-1">
                   <h2 className="text-xl font-semibold">
@@ -195,10 +294,7 @@ const ProductPage = () => {
                       Delete
                     </button>
                     <button
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setOpenEdit(true);
-                      }}
+                      onClick={() => handleEdit(product)}
                       className="
     flex items-center gap-2
     bg-gradient-to-r from-yellow-400 to-amber-500
@@ -374,8 +470,12 @@ const ProductPage = () => {
 
       <Modal
         open={openEdit}
-        onCancel={() => setOpenEdit(false)}
+        onCancel={() => {
+          setOpenEdit(false);
+          setSelectedProduct(null);
+        }}
         footer={null}
+        destroyOnClose
         className="dark-modal rounded-2xl overflow-hidden"
         title={
           <h2 className="text-white text-xl bg-[#1f1f2e] p-5 rounded-2xl font-bold">
@@ -383,6 +483,21 @@ const ProductPage = () => {
           </h2>
         }
       >
+        <div className="flex gap-4 text-white  bg-[#1f1f2e] p-5 rounded-2xl ">
+          {selectedProduct?.images?.map((img:any) => {
+            console.log(img, "lll");
+            return (
+              <div>
+                <img
+                  src={"https://store-api.softclub.tj/images/" + img.images}
+                  alt=""
+                  className="w-20 h-20"
+                />
+                <button className="p-2 bg-[red] mt-2 rounded-2xl" onClick={() => deleteImageMutation.mutate(img.id)}>Delete</button>
+              </div>
+            );
+          })}
+        </div>
         <form
           id="edit-product-form"
           className="flex flex-col gap-4 p-6 bg-[#1f1f2e] rounded-2xl"
